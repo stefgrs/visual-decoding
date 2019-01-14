@@ -22,18 +22,13 @@ import time
 from matplotlib import use
 use('Agg')
 import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import axes3d, Axes3D 
 import pandas as pd
-#get_ipython().run_line_magic('matplotlib', 'inline')
 
 # my modules
 #import myfcn
 import myfcn.annutils as fs
 import myfcn.anntransforms as ts
 #from myfcn.mylosses import batchMSELoss
-#from myfcn.anndatasets import ?
-#from myfcn.annmodels import ?
-#from myfcn.training_fcn import train_model1, get_chance1, eval_model1, get_full_pred_chance
 # import default parameters
 from visual_arguments import get_nondef, get_args
 
@@ -154,7 +149,7 @@ class iDataset(Dataset):
                 self.X = np.array(mat['val_set'], dtype = np.float)
             # normalise
             self.X = (self.X - self.mu)/self.sigma
-            self.meanOLE = 0.272
+            self.meanOLE = 0.272 #linear decoder performance
         else:
             # now load the simulated responses
             mat = sio.loadmat(fname.format(extraline,options['neurons'],options['irep']))
@@ -177,11 +172,6 @@ class iDataset(Dataset):
 
         self.nsamples = self.Y.shape[0]
         self.nneurons = self.X.shape[1]
-        #with open('/media/sg6513/DATADRIVE2/PhD-stuff/Poisson_data/Data/region1/LinDec_simulation_res_store/data_'+datatype+'_n{}_rep{}.pickle'.format(self.nneurons,options['irep']), 'wb') as f:
-        #    if 'train' in datatype:
-        #        pickle.dump({'Xtrain': self.X, 'Ytrain': self.Y, 'meanOLE': self.meanOLE},f)
-        #    else:
-        #        pickle.dump({'Xtest': self.X, 'Ytest': self.Y, 'meanOLE': self.meanOLE},f)
         print('In dataset init. N samples, n neurons: ', self.nsamples, self.nneurons)
 
     def __len__(self):
@@ -273,7 +263,7 @@ class rec_fcnn1(nn.Module):
         # expand dropout probabilities
         pr['p_dropout'] = expand_args(pr['p_dropout'], pr['nchans'], 'p dropout')
 
-        # TODO: recode as list of layers and use activation function in the forward pass
+        # possibly: rewrite as list of layers and use activation function in the forward pass
         self.decoder = nn.Sequential()
         for ilayer in range(self.nlayers):
             # apply dropout is layer is not the first one and if required
@@ -304,12 +294,10 @@ class rec_dcnn1(nn.Module):
         super(rec_dcnn1, self).__init__()
         
         assert(len(pr['nchans']) == len(pr['ksize'])-1)
-        #assert(len(pr['nchans']) == len(pr['stride']))
         # expand the dropout probability to the proper length
         pr['stride'] = expand_args(pr['stride'], pr['ksize'], 'stride')
         pr['p_dropout'] = expand_args(pr['p_dropout'], pr['ksize'], 'p dropout')
         self.use_gpu = use_gpu
-        #self.batch_first = batch_first
 
         self.nlayers_fc = len([x for x in pr['ksize'] if x==0])
         self.nlayers = len(pr['ksize'])
@@ -341,7 +329,6 @@ class rec_dcnn1(nn.Module):
         # Deconvolutional part
         self.decoder_conv = nn.Sequential()
         for ilayer in range(self.nlayers_fc, self.nlayers):
-            #ilayer = ilayer + self.nlayers_fc
             # apply dropout layer if requested
             if pr['p_dropout'][ilayer-1]>0:
                 name = 'dropout{}'.format(ilayer+1)
@@ -391,7 +378,6 @@ class rec_dcnn1(nn.Module):
 
 
 class rec_dcnn2(nn.Module):
-    #TODO: change Upsampling layer: warnings.warn("nn.Upsampling is deprecated. Use nn.functional.interpolate instead.") /home/sg6513/miniconda3/envs/pytorch4.1/lib/python3.6/site-packages/torch/nn/functional.py:1961: UserWarning: Default upsampling behavior when mode=bilinear is changed to align_corners=False since 0.4.0. Please specify align_corners=True if the old behavior is desired. See the documentation of nn.Upsample for details.   "See the documentation of nn.Upsample for details.".format(mode))
     '''
     In this template we have a deconvolutional neural network with more flexibility in the numbers of layers.
     '''
@@ -399,16 +385,13 @@ class rec_dcnn2(nn.Module):
         super(rec_dcnn2, self).__init__()
         
         assert(len(pr['nchans']) == len(pr['ksize'])-1)
-        #assert(len(pr['nchans']) == len(pr['stride']))
         # expand the dropout probability to the proper length
         pr['p_dropout'] = expand_args(pr['p_dropout'], pr['ksize'], 'p dropout')
         self.use_gpu = use_gpu
-        #self.batch_first = batch_first
 
         self.nlayers_fc = len([x for x in pr['ksize'] if x==0])
         self.nlayers = len(pr['ksize'])
         self.nlayers_conv = self.nlayers - self.nlayers_fc
-        #print(pr['p_dropout'],self.nlayers, self.nlayers_fc)
         in_chan = [pr['input_size']] + pr['nchans']
         out_chan = pr['nchans'] + [1] #the output is 1 channel - pixels are from HxW [pr['output_size']]
         assert(len(pr['upsample']) == self.nlayers_conv - 1)
@@ -489,33 +472,7 @@ class rec_dcnn2(nn.Module):
         
         return z
 
-        
-'''
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
 
-class MyActivationFunction(nn.Module):
-
-    def __init__(self, mean=0, std=1, min=0.1, max=0.9):
-        super(MyActivationFunction, self).__init__()
-        self.mean = mean
-        self.std = std
-        self.min = min
-        self.max = max
-
-    def forward(self, x):
-        gauss = torch.exp((-(x - self.mean) ** 2)/(2* self.std ** 2))
-        return torch.clamp(gauss, min=self.min, max=self.max)
-
-my_net = nn.Sequential(
-    nn.Linear(7, 5),
-    MyActivationFunction()
-)
-
-y = my_net(Variable(torch.rand(10, 7)))
-y.backward(torch.rand(10, 5))
-'''
 
 '''
 TRAINING FUNCTION
@@ -595,53 +552,26 @@ def train_model0(model, criterion, optimizer, scheduler, dsets, dataloaders, sta
                     inputs.requires_grad_()
 
 
-                '''
-                # pop them out so that only extra variables are left
-                data.pop('Input')
-                data.pop('Target')
-                '''
-                # wrap everything in Variable and move to cuda if needed
-                #inputs = Variable(inputs, volatile = vol_flag)
-                #labels = Variable(labels, volatile = vol_flag, requires_grad = False)
                 if use_gpu:
                     inputs = inputs.cuda()
                     labels = labels.cuda()
-                '''
-                # now the rest
-                for u in data:
-                    #data[u] = Variable(data[u], volatile = vol_flag, requires_grad = False)
-                    if use_gpu:
-                        data[u] = data[u].cuda()
-                
-                d= inputs.shape[1]
-                din = inputs.shape
-                dout = inputs.shape
-                '''
+
                 # zero the parameter gradients
                 optimizer.zero_grad()
                 #model.zero_grad() # do I need this?
 
                 # run the forward pass (it's ok also if data is none)
-                preds = model(inputs)#, **data) #This are all the predictions
-                '''
-                plt.subplot(1,2,1)
-                plt.imshow(np.reshape(labels[0,:].detach().cpu().numpy(),(31,31)))
-                plt.subplot(1,2,2)
-                plt.imshow(np.reshape(preds[0,:].detach().cpu().numpy(),(31,31)))
-                plt.colorbar()
-                plt.savefig('/media/sg6513/DATADRIVE2/PhD-stuff/Antolik_data/Data/region1/ex_pred_{}.png'.format(phase))
-                plt.close()
-                '''
+                preds = model(inputs) #This are all the predictions
+                
                 if args.loss == 'kldiv':
                     loss = criterion(torch.log(preds), labels)
                 else:
                     loss = criterion(preds, labels) 
-                #print(loss)
                 
                 # keep relevant statistics             
                 if len(loss.shape)>0:
                     # If I haven't averaged over the batch already
-                    running_loss += loss.sum().item() #why do I have the [0]?
+                    running_loss += loss.sum().item()
                     running_square += torch.pow(loss,2).sum().item()
                     divider += loss.shape[0]
                     loss = loss.mean()
@@ -650,7 +580,6 @@ def train_model0(model, criterion, optimizer, scheduler, dsets, dataloaders, sta
                     running_loss += loss.item()
                     running_square += torch.pow(loss,2).item()
                     divider += 1
-                #keep_loss[phase].append(loss.data.cpu()) #I THINK THIS TAKES LOTS OF MEMORY!!!! -- MAYBE NOT ????
                 
                 if ii%cstep == 0:
                     print('make predictions ', time.time() - t00, ii, ii%cstep)
@@ -664,8 +593,6 @@ def train_model0(model, criterion, optimizer, scheduler, dsets, dataloaders, sta
                     if ii%cstep == 0:
                         print('backward step', time.time() - t00)
 
-                # detach loss (is this needed?)
-                ##loss = loss.detach()
 
             epoch_loss = running_loss / divider
             epoch_loss_hist[phase].append(epoch_loss)
@@ -676,7 +603,6 @@ def train_model0(model, criterion, optimizer, scheduler, dsets, dataloaders, sta
                     phase, epoch_loss, start_loss['chance_'+phase], (time.time() - since2) ))
                 #if verbose:
                 #    os.system('nvidia-smi --query-gpu=memory.free,memory.used --format=csv')
-            #gc.collect()
 
             # deep copy the model
             if phase == 'val':
@@ -740,7 +666,6 @@ if expid == 'real':
 else:
     fname = datadir + poissondata + 'all_sim_option21{}n{}_pt1_rep{:02d}.mat'
     realfname = datadir + realdata + 'full_data.mat'
-#print('all_sim_option21{}n{}_pt1_rep{:02d}.mat'.format('bla',1,9))
 saveroot = '/media/sg6513/DATADRIVE2/PhD-stuff/Res_ANN_pytorch/'
 studyid = 'Trial2'
 savedir = saveroot + expid + '/' + studyid + '/'
@@ -749,11 +674,6 @@ inet = get_net_nb(savedir)
 
 # dataset parameters
 usememory = True
-
-# set model parameters
-# deconv formula:
-#out = (in - 1)*stride - 2*pad + k + out_pad
-# for out = in*2 with stride = 2 -> 0 = -2 -2*pad + k -> k = 2*(pad+1) -> pad = k/2 -1
 
 # model to use
 models_avail = {'1': rec_fcnn1,'2': rec_dcnn1, '3': rec_dcnn2 }
@@ -789,35 +709,8 @@ else:
     neurons = ds.nneurons #args.neurons
 pr = {'nchans': args.nchans, 'ksize': args.ksize, 'input_size': neurons, 'output_size': nPixels, 'p_dropout': args.p_dropout, 'use_bn': args.use_bn, 'hid_activation': args.hid_act, 'out_activation': args.out_act, 'stride': args.stride, 'upsample': args.upsample}
 
-'''
-# initialise the model and check that the forward pass works fine
-if args.use_gpu:
-    model = models_avail[args.model](pr,use_gpu = True).cuda()
-else:
-    model = models_avail[args.model](pr, use_gpu = False)
-if args.verbose:
-    print(model)
-    print('-'*20)
-    system('nvidia-smi --query-gpu=memory.free,memory.used --format=csv')
-
-# TEST THE MODEL
-dataloaders = torch.utils.data.DataLoader(ds, batch_size=4, shuffle=True)
-data = next(iter(dataloaders))
-if args.use_gpu:
-    for k in data.keys():
-        data[k] = data[k].cuda()
-print('Testing the dataset 1. ',type(ds[0]['Input']))
-print('Testing the dataset 2. ',type(data['Input']))
-#data['Input'] = autograd.Variable(data['Input'])
-#data['Target'] = autograd.Variable(data['Target'])
-out = model(data['Input'])
-print('Testing the model 1. ', out.shape)
-data = None
-out = None
-'''
 
 # Create the two datasets for training and testing
-#20518. #TODO: change the indices
 datatypes = { x: x + '_' + args.dtype for x in ['train','test']}
 #indices = {'train': range(15000), 'test': range(15000,20518)}
 ds = {x : iDataset(datatype = datatypes[x], options = options, fname = fname, realfname = realfname, transform = data_transforms[x]) for x in ['train','test']}
@@ -852,10 +745,8 @@ else:
 if args.lr_decay:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=args.lrds, gamma=args.lrdg)
 # decide loss function
-#loss_function = batchMSELoss()
 losses_dict = {'mse': nn.MSELoss(), 'binaryce': nn.BCELoss(), 'l1': nn.L1Loss(), 'kldiv': nn.KLDivLoss()}
 loss_function = losses_dict[args.loss]
-# obS: with kldiv I need to take the log of the predictions
 
 print(divider)
 print(loss_function)
@@ -882,7 +773,6 @@ labels = data['Target'].cpu().detach().numpy()
 # compute MSE
 MSE = np.mean((preds - labels)**2, axis = 1)
 CORR = np.diag(generate_correlation_map(preds, labels))
-print(CORR.shape)
 
 print(divider)
 print('Saving some example predictions')
