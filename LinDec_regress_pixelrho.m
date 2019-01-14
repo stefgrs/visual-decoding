@@ -1,5 +1,5 @@
 %%
-% Linear decoder to decode frames. This script regresses the performance over 
+% Linear decoder to decode frames. This script regresses the performance over
 % each pixel against local properties of the receptive fields and various 
 % measures of that pixel intensity distribution over frames
 % Results have been published here:
